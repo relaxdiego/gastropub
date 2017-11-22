@@ -1,0 +1,105 @@
+{
+    "variables": {
+        "project_name": "{{env `project_name`}}",
+
+        "os_distribution": "{{env `os_distribution`}}",
+        "os_iso_cache_path": "{{env `os_iso_cache_path`}}",
+        "os_iso_channel": "{{env `os_iso_channel`}}",
+        "os_iso_checksum": "{{env `os_iso_checksum`}}",
+        "os_iso_checksum_type": "{{env `os_iso_checksum_type`}}",
+        "os_iso_filename": "{{env `os_iso_filename`}}",
+        "os_version": "{{env `os_version`}}",
+
+        "script_directory": "{{env `script_path`}}",
+        "output_directory": "{{env `packer_output_path`}}",
+        "http_directory": "{{env `packer_http_path`}}/{{env `os`}}",
+
+        "vm_disk_mb": "65536",
+        "vm_ram_mb": "2048",
+        "vm_cpu_count": "1",
+
+        "headless": "{{env `headless`}}",
+
+        "playbook_path": "{{env `playbook_path`}}",
+
+        "tmp_path": "{{env `packer_tmp_path`}}"
+    },
+    "builders": [
+        {
+            "name": "{{user `project_name`}}-virtualbox",
+            "type": "virtualbox-iso",
+            "vm_name": "{{user `project_name`}}-virtualbox",
+            "headless": "{{user `headless`}}",
+
+            "iso_checksum": "{{user `os_iso_checksum`}}",
+            "iso_checksum_type": "{{user `os_iso_checksum_type`}}",
+            "iso_url": "file://{{user `os_iso_cache_path`}}",
+
+            "http_directory": "{{user `http_directory`}}",
+
+            "boot_wait": "15s",
+            "boot_command": [
+                "<esc><esc><enter><wait>",
+                "sudo -i<enter>",
+                "systemctl stop sshd.socket<enter>",
+                "wget \"http://{{ .HTTPIP }}:{{ .HTTPPort }}/{{user `os_distribution`}}/install\" -O /tmp/install<enter>",
+                "cd /tmp && chmod +x install<enter>",
+                "if ! boot_files_base_url=http://{{ .HTTPIP }}:{{ .HTTPPort }}/{{user `os_distribution`}} version={{user `os_version`}} ./install; then sleep 120; fi<enter>",
+                "reboot<enter>"
+            ],
+
+
+            "communicator": "ssh",
+            "ssh_port": "22",
+            "ssh_username": "admin",
+            "ssh_password": "admin",
+            "ssh_timeout": "15m",
+
+            "guest_os_type": "Linux_64",
+            "hard_drive_interface": "sata",
+            "disk_size": "{{user `vm_disk_mb`}}",
+            "vboxmanage": [
+              [ "modifyvm", "{{.Name}}", "--memory", "{{user `vm_ram_mb`}}" ],
+              [ "modifyvm", "{{.Name}}", "--cpus", "{{user `vm_cpu_count`}}" ]
+            ],
+            "guest_additions_mode": "disable",
+
+
+            "shutdown_command": "sudo -S shutdown -P now",
+            "format": "ova",
+            "output_directory": "{{user `output_directory`}}"
+        }
+    ],
+    "provisioners": [
+        {
+            "type": "ansible",
+            "user": "{{user `ssh_username`}}",
+            "playbook_file": "{{user `playbook_path`}}",
+            "extra_arguments": [
+                "--connection=ssh",
+                "--extra-vars", "ansible_ssh_pass={{user `ssh_password`}} tmp_path={{user `tmp_path`}}"
+            ],
+            "ansible_env_vars": [
+                "ANSIBLE_SCP_IF_SSH=True"
+            ]
+        },
+        {
+            "type": "shell",
+            "inline":[
+                "sudo rm -rf /home/*/.ssh",
+                "sudo rm -f /etc/ssh/ssh_host_*"
+            ]
+        }
+    ],
+    "post-processors": [
+        {
+            "type": "vagrant",
+            "only": [
+                "{{user `project_name`}}-virtualbox"
+            ],
+            "compression_level": 1,
+            "output": "{{user `output_directory`}}/{{.BuildName}}.box",
+            "keep_input_artifact": true
+        }
+    ]
+}

@@ -1,0 +1,49 @@
+#!/usr/bin/env bash
+set -e
+
+# Import the common variables
+export script_path=$( dirname "${BASH_SOURCE[0]}" )
+source $script_path/common
+
+export provider=${provider:-'virtualbox'}
+export headless=${headless:-'true'}
+
+export os_distribution="coreos"
+export os_version="1520.8.0"
+export os_iso_checksum_type="sha512"
+export os_iso_checksum="3f523659475f53cedb66e5d1fb1793823f0fd63e10385460433b473caff90ccee3b5452c6ecd24616d7ebe02d1178206bcd06510a40da4dc46b6f8121dec1125"
+export os_iso_url="https://stable.release.core-os.net/amd64-usr/${os_version}/coreos_production_iso_image.iso"
+export os_iso_filename="${os_distribution}-${os_version}.iso"
+export os_iso_cache_path=$tmp_path/os-images/$os_iso_filename
+export os_binbz2_url="https://stable.release.core-os.net/amd64-usr/${os_version}/coreos_production_image.bin.bz2"
+export os_binbz2_filename="coreos_production_image.bin.bz2"
+export os_binbz2_cache_path=$tmp_path/os-images/$os_binbz2_filename
+export os_boot_files=$project_path/boot-files/$os
+
+echo -e "\e[32mBaking the goodies...\e[39m"
+
+# Always start fresh by deleting any previously built images
+rm -rf $output_path/${project_name}-${provider}*
+
+# Cache the ISO that will be used by Packer
+if [[ ! -e $os_iso_cache_path ]]; then
+    mkdir -p $(dirname $os_iso_cache_path)
+    wget $os_iso_url -O $os_iso_cache_path
+fi
+
+if [[ ! -e $os_binbz2_cache_path ]]; then
+    mkdir -p $(dirname $os_iso_cache_path)
+    wget $os_binbz2_url -O $os_binbz2_cache_path
+    wget ${os_binbz2_url}.sig -O ${os_binbz2_cache_path}.sig
+fi
+
+# Prepare the files needed by the boot_command portion of the Packer builder
+# to the directory that Packer's built-in HTTP server will serve from.
+mkdir -p $packer_http_path/$os_distribution/$os_version
+cp -rv $os_boot_files/$os_distribution/* $packer_http_path/$os_distribution/
+cp -v $(dirname $os_iso_cache_path)/* $packer_http_path/$os_distribution/$os_version/
+
+time packer build -force -only=${project_name}-${provider} $templates_path/template.json
+
+echo -e "\e[32mMy work here is done. Beer time!\e[39m"
+exit 0

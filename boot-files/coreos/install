@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+
+set -e
+set -x
+
+cd /tmp
+wget $boot_files_base_url/cloudinit.yml -O cloudinit.yml
+
+coreos-install \
+    -d /dev/sda \
+    -C stable \
+    -b $boot_files_base_url \
+    -c cloudinit.yml \
+    -V $version

@@ -1,0 +1,69 @@
+# -*- mode: ruby -*-
+# # vi: set ft=ruby :
+
+Vagrant.require_version ">= 1.6.0"
+
+Vagrant.configure("2") do |config|
+  node_vcpus = 3     # virtual cores
+  node_ram   = 8_192 # MB
+  provider   = ENV['provider']
+
+  config.ssh.username = "admin"
+  config.ssh.password = "admin"
+  config.vm.synced_folder ".", "/vagrant", disabled: true
+
+  #
+  # Virtualbox specific settings
+  #
+  config.vm.provider :virtualbox do |p|
+    p.gui    = false
+    p.cpus   = node_vcpus
+    p.memory = node_ram
+
+    # CoreOS doesn't support guest additions or vboxsf
+    p.check_guest_additions = false
+    p.functional_vboxsf     = false
+
+    config.vbguest.auto_update = false if Vagrant.has_plugin?("vagrant-vbguest")
+  end
+
+  #
+  # VMware specific settings
+  #
+  ["vmware_fusion", "vmware_workstation"].each do |vmware|
+     config.vm.provider vmware do |p, override|
+       p.gui             = false
+       p.vmx['numvcpus'] = node_vcpus
+       p.vmx['memsize']  = node_ram
+     end
+   end
+
+  #
+  # Define the VM
+  #
+  config.vm.define "gastropub-single-#{provider}" do |node|
+    box_path = "#{ENV['packer_output_path']}/gastropub-#{provider}.box"
+
+    if ! File.exists? box_path
+      raise Exception.new("The box path #{box_path} does not exist. Run `script/build --provider #{provider}` to create it.")
+    end
+
+    node.vm.box = "gastropub-#{provider}"
+    node.vm.box_url = "file://#{box_path}"
+
+    node.vm.network "forwarded_port", guest:   80, host: 5080
+    node.vm.network "forwarded_port", guest:  443, host: 5443
+
+    ansibe_raw_arguments = [
+      "--connection=ssh",
+      "--extra-vars",
+      "ansible_ssh_pass=admin"
+    ]
+
+    node.vm.provision :ansible do |ansible|
+      ansible.playbook = "config/host.yaml"
+      ansible.raw_arguments = ansibe_raw_arguments
+      ansible.compatibility_mode = "2.0"
+    end
+  end
+end

@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+set -e
+
+# Import the common variables
+export script_path=$( dirname "${BASH_SOURCE[0]}"  )
+source $script_path/common
+
+if ! vagrant status --machine-readable | grep "not created" > /dev/null; then
+    echo -e "\e[31mERROR:\e[39m A VM is already running. Run 'script/rehearsal destroy'" \
+            "first and then try again."
+    exit 1
+fi
+
+if [[ ! -f $rehearsal_config ]]; then
+    vagrant box remove ${project_name}-${vagrant_provider} 2>/dev/null || true
+fi
+
+#
+# Prepare the the setup config for use by other rehearsal scripts
+#
+cat > $rehearsal_config <<EOF
+provider=$provider
+EOF
+
+vagrant up --provider "$provider"

@@ -1,0 +1,9 @@
+---
+- hosts: all
+  gather_facts: false
+
+  vars:
+    ansible_python_interpreter: "/home/admin/bin/python"
+
+  roles:
+    - defunctzombie.coreos-bootstrap

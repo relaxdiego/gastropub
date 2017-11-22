@@ -1,0 +1,74 @@
+#cloud-config
+
+coreos:
+  oem:
+    id: "gastropub"
+    name: "Gastropub Machine Image"
+    version-id: "1.0.0"
+    home-url: https://www.relaxdiego.com/
+
+
+  units:
+  - name: rc-local.service
+    runtime: true
+    command: start
+    content: |
+      [Unit]
+       Description=/etc/rc.local Compatibility
+       ConditionPathExists=/etc/rc.local
+
+      [Service]
+       Type=forking
+       ExecStart=/etc/rc.local start
+       TimeoutSec=0
+       StandardOutput=tty
+       RemainAfterExit=yes
+       SysVStartPriority=99
+
+      [Install]
+       WantedBy=multi-user.target
+
+  - name: init-admin.service
+    command: start
+    runtime: true
+    enable: true
+    content: |
+      [Unit]
+      Description=Initialize admin user
+      After=systemd-networkd.service
+      Requires=systemd-networkd.service
+
+      [Service]
+      Type=simple
+      ExecStart=/etc/init-admin
+
+      [Install]
+      WantedBy=multi-user.target
+
+
+users:
+  - name: admin
+    groups:
+      - sudo
+      - docker
+
+
+write_files:
+  - path: "/etc/rc.local"
+    permissions: "0755"
+    owner: "root"
+    content: |
+      #!/bin/bash
+
+      # Suppress all messages from the kernel (and its drivers) except
+      # panic messages from appearing on the console.
+      /usr/bin/dmesg -n 1
+
+  - path: "/etc/init-admin"
+    permissions: "0755"
+    owner: "root"
+    content: |
+      #!/bin/bash
+      set -e
+      user='admin'
+      echo "$user:$user" | chpasswd

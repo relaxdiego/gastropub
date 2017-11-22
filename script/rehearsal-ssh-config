@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+set -e
+
+# Import the common variables
+export script_path=$( dirname "${BASH_SOURCE[0]}"  )
+source $script_path/common
+
+vagrant ssh-config $*

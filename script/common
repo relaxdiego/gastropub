@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+
+script_path=$( dirname "${BASH_SOURCE[0]}"  )
+
+cd $script_path/.. && export project_path=$(pwd) && cd - > /dev/null
+
+export project_name=gastropub
+export tmp_path=${project_path}/tmp
+export packer_tmp_path=${tmp_path}/packer
+export packer_output_path=${packer_tmp_path}/output
+export packer_http_path=${packer_tmp_path}/http
+
+export templates_path=${project_path}
+export os_installer_path=${project_path}/os-installer
+export provisioner_path=${project_path}/config
+export playbook_path=${provisioner_path}/host.yaml
+
+export PACKER_CACHE_DIR=${packer_tmp_path}/cache
+
+export rehearsal_config=${project_path}/.rehearsal
+
+if [[ -f $rehearsal_config ]]; then
+    source $rehearsal_config
+fi
+
+export provider=virtualbox
+export VAGRANT_VAGRANTFILE=${project_path}/vagrant/Vagrantfile
